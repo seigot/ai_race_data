@@ -12,4 +12,4 @@ ai_race: https://github.com/seigot/ai_race
 学習済のモデル
 
 ## 備考
-より良い方法、検討中
+- １ファイル100MB、リポジトリ全体10GB のサイズ制限あり！
