@@ -11,5 +11,5 @@ ai_race: https://github.com/seigot/ai_race
 ## model
 学習済のモデル
 
-## 参考
-データ共有用のより良い方法を検討中
+## 備考
+より良い方法、検討中
