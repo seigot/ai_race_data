@@ -1,5 +1,7 @@
 # ai_race_data
-ai_race 向けのデータです（仮）<br>
+
+## 本リポジトリについて
+ai_race 向けのデータ置き場です <br>
 <br>
 ai_race: https://github.com/seigot/ai_race
 
@@ -10,4 +12,4 @@ ai_race: https://github.com/seigot/ai_race
 学習済のモデル
 
 ## 参考
-xxx
+データ共有用のより良い方法を検討中
