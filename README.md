@@ -6,7 +6,7 @@ ai_race 向けのデータ置き場です <br>
 ai_race: https://github.com/seigot/ai_race
 
 ## dataset
-学習用のデータセット
+学習用のデータ
 
 ## model
 学習済のモデル
