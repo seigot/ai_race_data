@@ -1,7 +1,9 @@
 # ai_race_data
 
 ## 本リポジトリについて
-ai_race 向けのデータ置き場です : https://github.com/seigot/ai_race
+ai_race 向けのデータ置き場です : https://github.com/seigot/ai_race <br>
+<br>
+※ （注意）登録は公開データのみです。 <br>
 
 ## dataset
 学習用のデータ
