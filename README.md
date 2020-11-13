@@ -1,7 +1,8 @@
 # ai_race_data
 
 ## 本リポジトリについて
-ai_race 向けのデータ置き場です : https://github.com/seigot/ai_race <br>
+運営用の ai_race 向けのデータ置き場です : https://github.com/seigot/ai_race <br>
+データに加えて、様々な検討用データも置く予定です。<br>
 <br>
 ※ （注意）登録は公開データのみです。 <br>
 
@@ -10,6 +11,9 @@ ai_race 向けのデータ置き場です : https://github.com/seigot/ai_race <b
 
 ## model
 学習済のモデル
+
+## script
+スクリプト類
 
 ## 備考
 > [https://docs.github.com/ja/free-pro-team@latest/github/managing-large-files/conditions-for-large-files](https://docs.github.com/ja/free-pro-team@latest/github/managing-large-files/conditions-for-large-files) <br>
