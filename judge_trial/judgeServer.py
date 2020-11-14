@@ -50,12 +50,12 @@ app = Flask(__name__)
 #        return json
 
 
-class JUDGE:
-    def __init__(self, matchtime, extendtime):
+class RaceManagerClass:
+    def __init__(self, gametime):
         #self.RaceStateClass = RaceState(matchtime, extendtime)
 
         self.initializeTimer()
-        self.matchtime = matchtime # [sec]
+        self.gametime = gametime # [sec]
         #self.state = "end"
         self.lap_count = 0
 
@@ -248,7 +248,7 @@ def startRace():
     body = request.json
     ip = request.remote_addr
     app.logger.info("POST /raceState/start " + str(ip) + str(body))
-    response = judge.startRace()
+    response = RaceManager.startRace()
     res = response
     app.logger.info("RESPONSE /raceState/start " + str(ip) + str(res))
     return jsonify(res)
@@ -259,7 +259,7 @@ def updateRace():
     body = request.json
     ip = request.remote_addr
     app.logger.info("POST /raceState/update " + str(ip) + str(body))
-    response = judge.updateRace(body)
+    response = RaceManager.updateRace(body)
     res = response
     app.logger.info("RESPONSE /raceState/update " + str(ip) + str(res))
     return jsonify(res)
@@ -273,7 +273,7 @@ def updateRace():
 #    player_name = body["name"]
 #    player_side = body["side"]
 #    target_id = body["id"]
-#    response = judge.judgeTargetId(player_name, player_side, target_id)
+#    response = RaceManager.judgeTargetId(player_name, player_side, target_id)
 #    res = response
 #    app.logger.info("RESPONSE /submits " + str(ip) + str(res))
 #    return jsonify(res)
@@ -284,7 +284,7 @@ def getState():
     print("request to GET /raceState")
     ip = request.remote_addr
     #app.logger.info("GET /raceState " + str(ip))
-    state_json = judge.getRaceStateJson()
+    state_json = RaceManager.getRaceStateJson()
     res = state_json
     #app.logger.info("RESPONSE /raceState "+ str(ip) + str(res))
     return jsonify(res)
@@ -297,7 +297,7 @@ def getState():
 #    ip = request.remote_addr
 #    app.logger.info("POST /raceState/players " + str(ip) + str(body))
 #    name = body["name"]
-#    ret = judge.registPlayer(name)
+#    ret = RaceManager.registPlayer(name)
 #    res = ret
 #    app.logger.info("RESPONSE /raceState/players " + str(ip)+ str(res))
 #    return jsonify(res)
@@ -313,7 +313,7 @@ def getState():
 #    target_id = body["id"]
 #    print(str(name) + " " + str(target_id))
 #    #point = body["point"]
-#    #ret = judge.registTarget(name, target_id, point)
+#    #ret = RaceManager.registTarget(name, target_id, point)
 #    ret = "test"
 #    res = {"name": ret}
 #    app.logger.info("RESPONSE /raceState/targets " + str(ip)+ str(res))
@@ -327,7 +327,7 @@ def setState():
     app.logger.info("POST /raceState/state " + str(ip)+ str(body))
     state = body["state"]
     print(state)
-    ret = judge.setState(state)
+    ret = RaceManager.setState(state)
     res =  {"state": ret}
     app.logger.info("RESPONSE /raceState/state " + str(ip)+ str(res))
     return jsonify(res)
@@ -339,7 +339,7 @@ def setState():
 #    ip = request.remote_addr
 #    app.logger.info("GET /reset " + str(ip))
 #    global judge
-#    judge = JUDGE(args.matchtime, args.extendtime)
+#    judge = RaceManager(args.matchtime, args.extendtime)
 #    res = "reset"
 #    app.logger.info("RESPONSE /reset " + str(ip) + str(res) + str(args.matchtime) + str(args.extendtime))
 #    return jsonify(res)
@@ -358,12 +358,11 @@ def setState():
 if __name__ == '__main__':
     # argument parse
     parser = argparse.ArgumentParser(description='burger_war judger server')
-    parser.add_argument('--matchtime', '--mt', default=float('inf'), type=float, help='match time [sec]')
-    parser.add_argument('--extendtime','--et', default=60, type=float, help='extend time [sec]')
+    parser.add_argument('--gametime', '--gt', default=float('inf'), type=float, help='game time [sec]')
     args = parser.parse_args()
 
     # global object judge
-    judge = JUDGE(args.matchtime, args.extendtime)
+    RaceManager = RaceManagerClass(args.gametime)
 
     # app for debug
     now = datetime.datetime.now()
