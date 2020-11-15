@@ -3,6 +3,8 @@ import os
 import datetime
 import time
 import argparse
+import json
+import threading
 ## flask
 from flask import Flask, request, jsonify, render_template
 from flask import send_from_directory
@@ -10,226 +12,132 @@ from flask import send_from_directory
 import logging
 from logging.handlers import RotatingFileHandler
 
+## general definition
+DEFAULT_GAME_TIME=240
+
+## flask
 app = Flask(__name__)
 
 
-#class Target:
-#    ## [future work] Set, if any Obstacle or Other item state is necessary...
-#    def __init__(self, name, id, point):
-#        self.id = id
-#        self.name = name
-#        self.player = "n"
-#        self.point = point
-#
-#    def makeJson(self):
-#        json = {
-#            "name": self.name,
-#            "player": self.player,
-#            "point": self.point,
-#        }
-#        return json
+class GameManagerClass:
 
-#class Response:
-#    def __init__(self):
-#        self.mutch = False
-#        self.new = False
-#        self.error = "yet init"
-#        self.target = None
-#
-#    def makeJson(self):
-#        if self.target is None:
-#            target = None
-#        else:
-#            target = self.target.makeJson()
-#        json = {
-#            "mutch": self.mutch,
-#            "new": self.new,
-#            "error": self.error,
-#            "target": target
-#        }
-#        return json
+    ####
+    # State
+    #  Init --> Start --> Stop
+    ####
+    
+    def __init__(self, args):
+        self.time_max = args.gametime # [sec]
+        self.initGameData()
 
+    def setJudgeState(self, state):
+        app.logger.info("setState")
+        if state != "init" and state != "start" and state != "stop":
+            print("invalid state." + state)
+            return False
 
-class RaceManagerClass:
-    def __init__(self, gametime):
-        #self.RaceStateClass = RaceState(matchtime, extendtime)
+        self.judgestate = state
+        return True
 
-        self.initializeTimer()
-        self.gametime = gametime # [sec]
-        #self.state = "end"
-        self.lap_count = 0
-
-    def initializeTimer(self):
-        self.init_time = None
+    def initGameData(self):
+        self.setJudgeState("init")
         self.start_time = 0.00
         self.passed_time = 0.00
-        self.stoped_time = 0.00
+        self.lap_count = 0
 
-    def getRaceStateJson(self):
-        is_finished = self.updateTime()
-        if is_finished:
-            self.writeResult()
-        return self.makeJson()
-
-    def startRace(self):
-        print("start startRace()")
+    def startGame(self):
+        self.setJudgeState("start")
         self.start_time = time.time()
-        ret = "ok"
-        return ret
+        return True
 
-    def updateRace(self, body):
-        print("start updateRace()")
-        print(body)
-        if "cnt" in body:
-            print("OKOKOKOK")
-        
-        cnt = body["cnt"]
-        print(cnt)
-        self.lap_count = self.lap_count + 1
-        ret = "ok"
-        return ret
+    def stopGame(self):
+        if self.judgestate == "stop":
+            return True
+        self.setJudgeState("stop")
+        self.writeResult()
+        return True
+
+    def requestToServer(self, body):
+        app.logger.info("requestToServer")
+
+        # check what is requested
+        ## change_state
+        if "change_state" in body:
+            change_state = body["change_state"]
+            if change_state == "init":
+                self.initGameData()
+            elif change_state == "start":
+                self.startGame()
+            elif change_state == "stop":
+                self.stopGame()
+            else:
+                print("invalid request")
+                return False
+        else:
+            print("invalid request")
+            return False
+        return True
 
     def updateTime(self):
         app.logger.info("updateTime")
-        if self.start_time == 0.00:
+        if self.judgestate == "init":
             self.passed_time = 0.00
             return False
 
+        # update time
         self.passed_time = time.time() - self.start_time
-        print(self.passed_time)
+        # check if time is over
+        if self.passed_time >= self.time_max:
+            self.stopGame()
 
         app.logger.info("passed_Time {}".format(self.passed_time))
-        return False
+        return True
 
-    def makeJson(self):
+    def updateData(self, body):
+        app.logger.info("updateData")
+
+        # check which data is requested to update
+        ## lap count
+        if "lap_count" in body:
+            self.lap_count = self.lap_count + int(body["lap_count"])
+        else:
+            print("invalid RaceData")
+            return False
+        return True
+
+    def getGameStateJson(self):
+        self.updateTime()
+
+        # state data to json
         json = {
             "field_info": {
-                "state": "None",
+                "description": "field information",
             },
-            "car_info": {
-                "state": "None",
+            "vehicle_info": {
+                "description": "vehicle information",
             },
             "judge_info": {
+                "description": "judge information",
                 "time": self.passed_time,
+                "time_max": self.time_max,
                 "lap_count": self.lap_count,
+                "judgestate": self.judgestate,
             },
             "debug_info": {
-                "state": "None",
+                "description": "debug information",
             },
         }
         return json
 
-    def makeCsv(self):
-        '''
-        for debug, convert race_state to string
-        '''
-        csv_list = ["{0:%y%m%d-%H%M%S}".format(datetime.datetime.now()),
-                    str(self.players["r"]),
-                    str(self.players["b"]),
-                    str(self.scores["r"]),
-                    str(self.scores["b"]),
-                    str(self.state),
-                    str(self.stoped_time),
-                    ' '.join([str(t.makeJson()) for t in self.targets]),
-                    ]
-        csv = ','.join(csv_list)
-        return csv
-
-    def setStateStop(self):
-        self.state = "stop"
-        self.initializeTimer()
-
-    def judgeTargetId(self, player_name, player_side, target_id):
-        '''
-        target_id must be string and length is "4"
-        return "False" or "target json"
-        '''
-        # make Response object
-        response = Response()
-
-        # Update time and check match time
-        is_finished = self.updateTime()
-        if is_finished:
-            self.writeResult()
-
-        # check state is running
-        if self.RaceStateClass.state != "running":
-            response.error = "ERR state is not running"
-            return response.makeJson()
-
-        for target in self.targets:
-            if target_id == target.id:
-                is_new = self.updateRaceState(target, player_name, player_side)
-                response.mutch = True
-                response.new = is_new
-                response.error = "no error"
-                response.target = target
-
-                return response.makeJson()
-        response.error = "ERR not mutch id"
-        return response.makeJson()
-
-
-    def updateRaceState(self, target, player_name, player_side):
-        # new target or not
-        if not target.player == "n":
-            is_new =  False
-        else:
-            is_new = True
-
-        # change target player
-        target.player = player_side
-
-        # recount score
-        red = 0
-        blue = 0
-        for target_ in self.targets:
-            if target_.player == 'n':
-                pass
-            elif target_.player == 'b':
-                blue += int(target_.point)
-            elif target_.player == 'r':
-                red += int(target_.point)
-            else:
-                app.logger.error("ERROR recount score")
-        self.scores['b'] = blue
-        self.scores['r'] = red
-
-        return is_new 
-
-    def registPlayer(self, name):
-        if self.players['r'] == "NoPlayer":
-            self.players['r'] = name
-            ret = {"side": "r", "name": name}
-        elif self.players['b'] == "NoPlayer":
-            self.players['b'] = name
-            ret = {"side": "b", "name": name}
-        else:
-            ret = "##Errer 2 player already registed"
-        return ret
-
-    def registTarget(self, name, target_id, point):
-        target = Target(name, target_id, point)
-        self.targets.append(target)
-        return target.name
-
-    def setState(self, state):
-        app.logger.info("setState")
-        if state == "end":
-            self.state = state
-        elif state == "running":
-            pass
-
-        return state
-
     def writeResult(self):
         ## For Debug, output Result file.
-        result_string = self.makeCsv()
         script_dir = os.path.dirname(os.path.abspath(__file__))
         log_file_path = script_dir + "/log/" + "game_result.log"
-        with open(log_file_path, "a") as f:
-            f.write(result_string + "\n")
-        app.logger.info("Write Result {}".format(result_string))
+        with open(log_file_path, "w") as f:
+            jsondata = self.getGameStateJson()
+            json.dump(jsondata, f)
+            app.logger.info("Write Result {}".format(jsondata))
+
 
 ### API definition
 @app.route('/')
@@ -242,127 +150,48 @@ def index():
 #def favicon():
 #    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.ico', mimetype='static/')
 
-@app.route('/raceState/start', methods=['POST'])
-def startRace():
-    print("request to POST /raceState/start")
+@app.route('/judgeserver/request', methods=['POST'])
+def requestToJudge():
+    print("request to POST /judgeserver/request")
     body = request.json
     ip = request.remote_addr
-    app.logger.info("POST /raceState/start " + str(ip) + str(body))
-    response = RaceManager.startRace()
+    app.logger.info("POST /judgeserver/request " + str(ip) + str(body))
+    response = GameManager.requestToServer(body)
     res = response
-    app.logger.info("RESPONSE /raceState/start " + str(ip) + str(res))
+    app.logger.info("RESPONSE /judgeserver/request " + str(ip) + str(res))
     return jsonify(res)
 
-@app.route('/raceState/update', methods=['POST'])
-def updateRace():
-    print("request to POST /raceState/update")
+@app.route('/judgeserver/updateData', methods=['POST'])
+def updateData():
+    print("request to POST /judgeserver/updateData")
     body = request.json
     ip = request.remote_addr
-    app.logger.info("POST /raceState/update " + str(ip) + str(body))
-    response = RaceManager.updateRace(body)
+    app.logger.info("POST /judgeserver/updateData " + str(ip) + str(body))
+    response = GameManager.updateData(body)
     res = response
-    app.logger.info("RESPONSE /raceState/update " + str(ip) + str(res))
+    app.logger.info("RESPONSE /judgeserver/updateData " + str(ip) + str(res))
     return jsonify(res)
 
-#@app.route('/submits', methods=['POST'])
-#def judgeTargetId():
-#    print("request to POST /submits")
-#    body = request.json
-#    ip = request.remote_addr
-#    app.logger.info("POST /submits " + str(ip) + str(body))
-#    player_name = body["name"]
-#    player_side = body["side"]
-#    target_id = body["id"]
-#    response = RaceManager.judgeTargetId(player_name, player_side, target_id)
-#    res = response
-#    app.logger.info("RESPONSE /submits " + str(ip) + str(res))
-#    return jsonify(res)
-
-
-@app.route('/raceState', methods=['GET'])
+@app.route('/judgeserver/getState', methods=['GET'])
 def getState():
-    print("request to GET /raceState")
+    print("request to GET /judgeserver/getState")
     ip = request.remote_addr
-    #app.logger.info("GET /raceState " + str(ip))
-    state_json = RaceManager.getRaceStateJson()
+    #app.logger.info("GET /judgeserver/getState " + str(ip))
+    state_json = GameManager.getGameStateJson()
     res = state_json
-    #app.logger.info("RESPONSE /raceState "+ str(ip) + str(res))
+    #app.logger.info("RESPONSE /judgeserver/getState "+ str(ip) + str(res))
     return jsonify(res)
 
-
-#@app.route('/raceState/players', methods=['POST'])
-#def registPlayer():
-#    print("request to GET /raceState/players")
-#    body = request.json
-#    ip = request.remote_addr
-#    app.logger.info("POST /raceState/players " + str(ip) + str(body))
-#    name = body["name"]
-#    ret = RaceManager.registPlayer(name)
-#    res = ret
-#    app.logger.info("RESPONSE /raceState/players " + str(ip)+ str(res))
-#    return jsonify(res)
-
-
-#@app.route('/raceState/targets', methods=['POST'])
-#def registTarget():
-#    print("request to POST /raceState/targets")
-#    body = request.json
-#    ip = request.remote_addr
-#    app.logger.info("POST /raceState/targets " + str(ip)+ str(body))
-#    name = body["name"]
-#    target_id = body["id"]
-#    print(str(name) + " " + str(target_id))
-#    #point = body["point"]
-#    #ret = RaceManager.registTarget(name, target_id, point)
-#    ret = "test"
-#    res = {"name": ret}
-#    app.logger.info("RESPONSE /raceState/targets " + str(ip)+ str(res))
-#    return jsonify(res)
-
-@app.route('/raceState/state', methods=['POST'])
-def setState():
-    print("request to POST /raceState/state")
-    body = request.json
-    ip = request.remote_addr
-    app.logger.info("POST /raceState/state " + str(ip)+ str(body))
-    state = body["state"]
-    print(state)
-    ret = RaceManager.setState(state)
-    res =  {"state": ret}
-    app.logger.info("RESPONSE /raceState/state " + str(ip)+ str(res))
-    return jsonify(res)
-
-
-#@app.route('/reset', methods=['GET'])
-#def reset():
-#    print("request to GET /reset")
-#    ip = request.remote_addr
-#    app.logger.info("GET /reset " + str(ip))
-#    global judge
-#    judge = RaceManager(args.matchtime, args.extendtime)
-#    res = "reset"
-#    app.logger.info("RESPONSE /reset " + str(ip) + str(res) + str(args.matchtime) + str(args.extendtime))
-#    return jsonify(res)
-
-
-#@app.route('/test', methods=['GET'])
-#def getTest():
-#    print("request to GET /test")
-#    ip = request.remote_addr
-#    app.logger.info("GET /test "+ str(ip))
-#    res = { "foo": "bar", "hoge": "hogehoge" }
-#    app.logger.info("RESPONSE /test "+ str(ip) + str(res))
-#    return jsonify(res)
-
+def parse_argument():
+    # argument parse
+    parser = argparse.ArgumentParser(description='judger server')
+    parser.add_argument('--gametime', '--gt', default=int(DEFAULT_GAME_TIME), type=int, help='game time [sec]')
+    args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
-    # argument parse
-    parser = argparse.ArgumentParser(description='burger_war judger server')
-    parser.add_argument('--gametime', '--gt', default=float('inf'), type=float, help='game time [sec]')
-    args = parser.parse_args()
-
     # global object judge
-    RaceManager = RaceManagerClass(args.gametime)
+    GameManager = GameManagerClass(parse_argument())
 
     # app for debug
     now = datetime.datetime.now()

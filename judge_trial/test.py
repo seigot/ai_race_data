@@ -23,7 +23,7 @@ class StatusWindow:
         self.side = "r"
         target_id = 1
         test_state = "test"
-        self.judge_url="http://127.0.0.1:5000/raceState/start"
+        self.judge_url="http://127.0.0.1:5000/judgeserver/request"
         
         data = {}
         res = requests.post(self.judge_url,
@@ -33,7 +33,7 @@ class StatusWindow:
         return res
 
     def urlreq(self):
-        resp = requests.get("http://127.0.0.1:5000/raceState")
+        resp = requests.get("http://127.0.0.1:5000/judgeserver/getState")
         data = json.loads(resp.text)
         time = data["judge_info"]["time"]
         lap_count = data["judge_info"]["lap_count"]
@@ -48,24 +48,22 @@ class StatusWindow:
         self.side = "r"
         target_id = 1
         test_state = "test"
-        self.judge_url="http://127.0.0.1:5000/raceState/state"
+        self.judge_url="http://127.0.0.1:5000/judgeserver/updateData"
         
         data = {"name": self.player_name, "side": self.side, "id": target_id, "state": test_state}
         res = requests.post(self.judge_url,
                             json.dumps(data),
                             headers={'Content-Type': 'application/json'}
                             )
-
         return res
 
     def sendCnt(self):
-        data = {"cnt": 1}
-        self.judge_url="http://localhost:5000/raceState/update"
+        data = {"lap_count": 1}
+        self.judge_url="http://127.0.0.1:5000/judgeserver/updateData"
         res = requests.post(self.judge_url,
                             json.dumps(data),
                             headers={'Content-Type': 'application/json'}
                             )
-
         return res
 
 if __name__ == "__main__":
