@@ -27,7 +27,7 @@ class Window(QMainWindow):
 
         # setting geometry
         upper_left = (100,100)
-        width_height = (600, 260)
+        width_height = (600, 240)
         self.setGeometry(upper_left[0], upper_left[1],
                          width_height[0], width_height[1]) 
 
@@ -77,14 +77,14 @@ class Window(QMainWindow):
 
         # create lap_count button 
         lapcount = QPushButton("Lap++", self) 
-        lapcount_upper_left = (15, 200)
+        lapcount_upper_left = (15, 195)
         lapcount_width_height = (90, 40)
         lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
                              lapcount_width_height[0], lapcount_width_height[1])
         lapcount.pressed.connect(self.LapCount_plus) 
 
         lapcount = QPushButton("Lap--", self) 
-        lapcount_upper_left = (110, 200)
+        lapcount_upper_left = (110, 195)
         lapcount_width_height = (90, 40)
         lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
                              lapcount_width_height[0], lapcount_width_height[1])
@@ -92,7 +92,7 @@ class Window(QMainWindow):
 
         # create courseout_count button 
         lapcount = QPushButton("CourseOut++", self) 
-        lapcount_upper_left = (205, 200)
+        lapcount_upper_left = (205, 195)
         lapcount_width_height = (90, 40)
         lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
                              lapcount_width_height[0], lapcount_width_height[1])
@@ -100,7 +100,7 @@ class Window(QMainWindow):
         lapcount.setFont(QFont("Meiryo", 9))
 
         lapcount = QPushButton("CourseOut--", self) 
-        lapcount_upper_left = (300, 200)
+        lapcount_upper_left = (300, 195)
         lapcount_width_height = (90, 40)
         lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
                              lapcount_width_height[0], lapcount_width_height[1])
