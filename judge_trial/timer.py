@@ -8,15 +8,14 @@ import sys
 import requests
 from time import sleep
 import json
-import numpy as np
-import cv2
 import os
-import copy
 import datetime
 
 JUDGESERVER_REQUEST_URL="http://127.0.0.1:5000/judgeserver/request"
 JUDGESERVER_UPDATEDATA_URL="http://127.0.0.1:5000/judgeserver/updateData"
 JUDGESERVER_GETSTATE_URL="http://127.0.0.1:5000/judgeserver/getState"
+
+g_slidar = "aa"
 
 class Window(QMainWindow): 
   
@@ -28,7 +27,7 @@ class Window(QMainWindow):
 
         # setting geometry
         upper_left = (100,100)
-        width_height = (400, 200)
+        width_height = (600, 260)
         self.setGeometry(upper_left[0], upper_left[1],
                          width_height[0], width_height[1]) 
 
@@ -43,8 +42,8 @@ class Window(QMainWindow):
 
         # creating a label to show the time 
         self.label = QLabel(self)
-        label_upper_left = (75, 20)
-        label_width_height = (250, 100)
+        label_upper_left = (20, 10)
+        label_width_height = (560, 130)
         self.label.setGeometry(label_upper_left[0], label_upper_left[1], 
                                label_width_height[0], label_width_height[1]) 
         self.label.setStyleSheet("border : 4px solid black;") 
@@ -77,17 +76,45 @@ class Window(QMainWindow):
         reset.pressed.connect(self.Stop)
 
         # create lap_count button 
-        lapcount = QPushButton("LapCount", self) 
-        lapcount_upper_left = (300, 150)
+        lapcount = QPushButton("Lap++", self) 
+        lapcount_upper_left = (15, 200)
         lapcount_width_height = (90, 40)
         lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
                              lapcount_width_height[0], lapcount_width_height[1])
-        lapcount.pressed.connect(self.LapCount) 
-  
+        lapcount.pressed.connect(self.LapCount_plus) 
+
+        lapcount = QPushButton("Lap--", self) 
+        lapcount_upper_left = (110, 200)
+        lapcount_width_height = (90, 40)
+        lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
+                             lapcount_width_height[0], lapcount_width_height[1])
+        lapcount.pressed.connect(self.LapCount_minus)
+
+        # create courseout_count button 
+        lapcount = QPushButton("CourseOut++", self) 
+        lapcount_upper_left = (205, 200)
+        lapcount_width_height = (90, 40)
+        lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
+                             lapcount_width_height[0], lapcount_width_height[1])
+        lapcount.pressed.connect(self.CourseOutCount_plus) 
+        lapcount.setFont(QFont("Meiryo", 9))
+
+        lapcount = QPushButton("CourseOut--", self) 
+        lapcount_upper_left = (300, 200)
+        lapcount_width_height = (90, 40)
+        lapcount.setGeometry(lapcount_upper_left[0], lapcount_upper_left[1],
+                             lapcount_width_height[0], lapcount_width_height[1])
+        lapcount.pressed.connect(self.CourseOutCount_minus)
+        lapcount.setFont(QFont("Meiryo", 9))
+
         # creating a timer object 
         timer = QTimer(self) 
         timer.timeout.connect(self.callback_showTime)
-        timer.start(100) # update the timer by n(msec)
+        timer.start(500) # update the timer by n(msec)
+
+    def display_slider():
+        print(g_slidar.value())
+
 
     # timer callback function 
     def callback_showTime(self):
@@ -133,10 +160,32 @@ class Window(QMainWindow):
         return res
 
     # lap count button
-    def LapCount(self):
+    def LapCount_plus(self):
         # request POST data to server
         url = JUDGESERVER_UPDATEDATA_URL
         req_data = {"lap_count": 1}
+        res = self.httpPostReqToURL(url, req_data)
+        return res
+
+    def LapCount_minus(self):
+        # request POST data to server
+        url = JUDGESERVER_UPDATEDATA_URL
+        req_data = {"lap_count": -1}
+        res = self.httpPostReqToURL(url, req_data)
+        return res
+
+    # courseout count button
+    def CourseOutCount_plus(self):
+        # request POST data to server
+        url = JUDGESERVER_UPDATEDATA_URL
+        req_data = {"courseout_count": 1}
+        res = self.httpPostReqToURL(url, req_data)
+        return res
+
+    def CourseOutCount_minus(self):
+        # request POST data to server
+        url = JUDGESERVER_UPDATEDATA_URL
+        req_data = {"courseout_count": -1}
         res = self.httpPostReqToURL(url, req_data)
         return res
 
@@ -146,16 +195,20 @@ class Window(QMainWindow):
         data = self.httpGetReqToURL(url)
         time = data["judge_info"]["time"]
         lap_count = data["judge_info"]["lap_count"]
+        courseout_count = data["judge_info"]["courseout_count"]
+        #courseout_count = 0
         judgestate = data["judge_info"]["judgestate"]
 
         # timer text
         passed_time_str = str('{:.2f}'.format(time))
         lap_count_str = str(lap_count)
+        courseout_count_str = str(courseout_count)
         judgestate_str = str(judgestate)
 
         text = "JudgeState: " + judgestate_str + "\n" \
-               + "TIME: " + passed_time_str + " (s)" + "\n" \
-               + "LAP: " + lap_count_str
+               + "Time: " + passed_time_str + " (s)" + "\n" \
+               + "LAP: " + lap_count_str + "  " \
+               + "CourseOut: " + courseout_count_str
 
         return text
 
