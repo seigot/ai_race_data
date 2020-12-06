@@ -1,0 +1,45 @@
+diff --git a/README.md b/README.md
+index b4f8986..6212640 100644
+--- a/README.md
++++ b/README.md
+@@ -116,8 +116,8 @@ sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `ls
+ wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+ sudo apt-get update -y
+ sudo apt-get install -y ros-melodic-gazebo-ros-pkgs ros-melodic-gazebo-ros-control
+-echo "export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
+-export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models
++echo "export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
++export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models
+ # camera image
+ sudo apt-get install -y ros-melodic-uvc-camera
+ sudo apt-get install -y ros-melodic-image-*
+diff --git a/scripts/setup/auto_setup.sh b/scripts/setup/auto_setup.sh
+index 87cd1d1..0e89661 100755
+--- a/scripts/setup/auto_setup.sh
++++ b/scripts/setup/auto_setup.sh
+@@ -74,8 +74,8 @@ function install_ros_related_packages(){
+     wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+     sudo apt-get update -y
+     sudo apt-get install -y ros-melodic-gazebo-ros-pkgs ros-melodic-gazebo-ros-control
+-    echo "export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
+-    export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models
++    echo "export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
++    export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models
+     # camera image
+     sudo apt-get install -y ros-melodic-uvc-camera
+     sudo apt-get install -y ros-melodic-image-*
+diff --git a/scripts/setup/auto_setup_for_Linux.sh b/scripts/setup/auto_setup_for_Linux.sh
+index 040a079..0dc113e 100755
+--- a/scripts/setup/auto_setup_for_Linux.sh
++++ b/scripts/setup/auto_setup_for_Linux.sh
+@@ -101,8 +101,8 @@ function install_ros_related_packages(){
+     wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
+     sudo apt-get update -y
+     sudo apt-get install -y ros-melodic-gazebo-ros-pkgs ros-melodic-gazebo-ros-control
+-    echo "export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
+-    export GAZEBO_MODEL_PATH=:/home/jetson/catkin_ws/src/ai_race/ai_race:/home/jetson/catkin_ws/src/ai_race/ai_race/sim_world/models
++    echo "export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models" >> ~/.bashrc
++    export GAZEBO_MODEL_PATH=:${HOME}/catkin_ws/src/ai_race/ai_race:${HOME}/catkin_ws/src/ai_race/ai_race/sim_world/models
+     # camera image
+     sudo apt-get install -y ros-melodic-uvc-camera
+     sudo apt-get install -y ros-melodic-image-*
