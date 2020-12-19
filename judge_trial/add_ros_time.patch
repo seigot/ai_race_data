@@ -1,0 +1,195 @@
+diff --git a/judge/judgeServer.py b/judge/judgeServer.py
+index f8547bd..51b9daf 100644
+--- a/judge/judgeServer.py
++++ b/judge/judgeServer.py
+@@ -2,6 +2,7 @@
+ import os
+ import datetime
+ import time
++from enum import Enum
+ import argparse
+ import json
+ import threading
+@@ -15,10 +16,26 @@ from logging.handlers import RotatingFileHandler
+ 
+ ## general definition
+ DEFAULT_GAME_TIME=240
++DEFAULT_TIME_MODE=1
+ 
+ ## flask
+ app = Flask(__name__)
+ 
++## time mode
++class TimeMode(Enum):
++    SYSTEM_TIME = 1
++    ROS_TIME = 2
++
++class TimeManagementClass():
++    def __init__(self):
++        self.start_time = 0.00
++        self.elapsed_time = 0.00
++        self.current_time = 0.00
++
++    def init_time(self):
++        self.start_time = 0.00
++        self.elapsed_time = 0.00
++        self.current_time = 0.00
+ 
+ class GameManagerClass:
+ 
+@@ -29,6 +46,9 @@ class GameManagerClass:
+     
+     def __init__(self, args):
+         self.time_max = args.gametime # [sec]
++        self.time_mode = args.timemode
++        self.system_time = TimeManagementClass() # system time
++        self.ros_time = TimeManagementClass()    # ros time
+         self.initGameData()
+ 
+     def setJudgeState(self, state):
+@@ -52,15 +72,15 @@ class GameManagerClass:
+ 
+     def initGameData(self):
+         self.setJudgeState("init")
+-        self.start_time = 0.00
+-        self.passed_time = 0.00
++        self.system_time.init_time()
++        self.ros_time.init_time()
+         self.lap_count = 0
+         self.courseout_count = 0
+         self.is_courseout = 0
+ 
+     def startGame(self):
+         self.setJudgeState("start")
+-        self.start_time = time.time()
++        self.system_time.start_time = time.time()
+         return True
+ 
+     def stopGame(self):
+@@ -91,19 +111,29 @@ class GameManagerClass:
+             return False
+         return True
+ 
++    def is_timeover(self):
++        if self.time_mode == TimeMode.SYSTEM_TIME:
++            if self.system_time.elapsed_time < self.time_max:
++                return False
++        else: # ROS_TIME
++            if self.ros_time.elapsed_time < self.time_max:
++                return False
++        return True
++
+     def updateTime(self):
+         #app.logger.info("updateTime")
+-        if self.start_time == 0:
+-            self.passed_time = 0.00
++        if self.system_time.start_time == 0:
++            self.system_time.elapsed_time = 0.00
+             return False
+ 
+         # update time
+-        self.passed_time = time.time() - self.start_time
++        self.system_time.elapsed_time = time.time() - self.system_time.start_time
++        self.ros_time.elapsed_time = self.ros_time.current_time - self.ros_time.start_time
+         # check if time is over
+-        if self.passed_time >= self.time_max:
++        if self.is_timeover() == True:
+             self.stopGame()
+ 
+-        #app.logger.info("passed_Time {}".format(self.passed_time))
++        #app.logger.info("elapsed_time {}".format(self.elapsed_time))
+         return True
+ 
+     def updateData(self, body):
+@@ -118,6 +148,8 @@ class GameManagerClass:
+         if "is_courseout" in body:
+             self.is_courseout = int(body["is_courseout"])
+             print(self.is_courseout)
++        if "current_ros_time" in body:
++            self.ros_time.current_time = float(body["current_ros_time"])
+         return True
+ 
+     def getGameStateJson(self):
+@@ -134,7 +166,11 @@ class GameManagerClass:
+             },
+             "judge_info": {
+                 "description": "judge information",
+-                "time": self.passed_time,
++                "elapsed_time": {
++                    "system_time": self.system_time.elapsed_time,
++                    "ros_time": self.ros_time.elapsed_time,
++                },
++                "time_mode": self.time_mode,
+                 "time_max": self.time_max,
+                 "lap_count": self.lap_count,
+                 "courseout_count": self.courseout_count,
+@@ -205,6 +241,7 @@ def parse_argument():
+     # argument parse
+     parser = argparse.ArgumentParser(description='judger server')
+     parser.add_argument('--gametime', '--gt', default=int(DEFAULT_GAME_TIME), type=int, help='game time [sec]')
++    parser.add_argument('--timemode', '--tm', default=int(DEFAULT_TIME_MODE), type=int, help='time mode (1:SYSTEM_TIME/2:ROS_TIME)')
+     args = parser.parse_args()
+     return args
+ 
+diff --git a/judge/timer.py b/judge/timer.py
+index 25d096e..c9145a2 100644
+--- a/judge/timer.py
++++ b/judge/timer.py
+@@ -137,10 +137,6 @@ class Window(QMainWindow):
+                             )
+         return res
+ 
+-
+-
+-
+-
+     # init button
+     def Init(self):
+         url = JUDGESERVER_REQUEST_URL
+@@ -206,20 +202,30 @@ class Window(QMainWindow):
+         # request GET data to server
+         url = JUDGESERVER_GETSTATE_URL
+         data = self.httpGetReqToURL(url)
+-        time = data["judge_info"]["time"]
++
++        time_mode = int(data["judge_info"]["time_mode"])
++        if time_mode == 1:
++            elapsed_time = data["judge_info"]["elapsed_time"]["system_time"]
++            time_mode_str = "System Time: "
++        else:
++            elapsed_time = data["judge_info"]["elapsed_time"]["ros_time"]
++            time_mode_str = "ROS Time: "
++        time_max = int(data["judge_info"]["time_max"])
++
+         lap_count = data["judge_info"]["lap_count"]
+         courseout_count = data["judge_info"]["courseout_count"]
+         #courseout_count = 0
+         judgestate = data["judge_info"]["judgestate"]
+ 
+         # timer text
+-        passed_time_str = str('{:.2f}'.format(time))
++        passed_time_str = str('{:.2f}'.format(elapsed_time))
++        time_max_str = str('{:.2f}'.format(time_max))
+         lap_count_str = str(lap_count)
+         courseout_count_str = str(courseout_count)
+         judgestate_str = str(judgestate)
+ 
+         text = "JudgeState: " + judgestate_str + "\n" \
+-               + "Time: " + passed_time_str + " (s)" + "\n" \
++               + time_mode_str + passed_time_str + " / " + time_max_str + " (s)""\n" \
+                + "LAP: " + lap_count_str + "  " \
+                + "CourseOut: " + courseout_count_str
+ 
+diff --git a/scripts/prepare.sh b/scripts/prepare.sh
+index b8631c3..46a786e 100755
+--- a/scripts/prepare.sh
++++ b/scripts/prepare.sh
+@@ -37,7 +37,7 @@ function output_warning(){
+     local CNT=0
+     echo "---"
+     # check if install package
+-    if [ ${LEVEL} == "1a" ]; then
++    if [ ${LEVEL} != "1" ]; then
+ 	array=(
+ 	    ros-melodic-cob-srvs
+ 	)
