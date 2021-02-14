@@ -1,0 +1,46 @@
+diff --git a/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch b/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
+index ff29c6d..80388da 100755
+--- a/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
++++ b/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
+@@ -11,6 +11,7 @@
+   <arg name="arrow" default="true" />
+   <arg name="record" default="false" />
+   <arg name="play" default="false" />
++  <arg name="TESTNUM" default="3" />
+ 
+   <!-- We resume the logic in empty_world.launch, changing only the name of 
+     the world to be launched -->
+@@ -24,7 +25,7 @@
+   </include>
+ 
+   <!-- urdf xml robot description loaded on the Parameter Server-->
+-  <param name="robot_description" command="$(find xacro)/xacro.py '$(find sim_environment)/urdf/wheel_robot.urdf.xacro'" />
++  <param name="robot_description" command="$(find xacro)/xacro.py '$(find sim_environment)/urdf/wheel_robot.urdf.xacro' TESTNUM:=$(arg TESTNUM) --inorder" />
+   <param name="camera_description" command="$(find xacro)/xacro.py '$(find sim_environment)/urdf/surveillance_camera.urdf.xacro'" />
+   <param name="godeye_description" command="$(find xacro)/xacro.py '$(find sim_environment)/urdf/godeye.urdf.xacro'" />
+   <param name="godeye_perspective_description" command="$(find xacro)/xacro.py '$(find sim_environment)/urdf/godeye_perspective.urdf.xacro'" />
+diff --git a/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro b/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
+index ac723fb..957739b 100755
+--- a/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
++++ b/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
+@@ -7,6 +7,7 @@
+   <xacro:include filename="$(find sim_environment)/urdf/wheel_f.urdf.xacro" />
+   <xacro:include filename="$(find sim_environment)/urdf/hinge.urdf.xacro" />
+   <xacro:include filename="$(find sim_environment)/urdf/camera_macro.xacro" />
++  <xacro:arg name="TESTNUM" default="0" />
+ 
+   <!-- PROPERTY LIST -->
+   <!--All units in m-kg-s-radians unit system -->
+@@ -99,6 +100,12 @@
+ 
+   <gazebo>
+     <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so" />
++    <plugin name="ground_truth" filename="libgazebo_ros_p3d.so">
++        <frameName>world</frameName>
++        <bodyName>base_link</bodyName>
++        <topicName>/tracker_$(arg TESTNUM)</topicName>
++        <updateRate>10.0</updateRate>
++    </plugin>
+   </gazebo>
+  
+ 
