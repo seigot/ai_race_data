@@ -1,0 +1,135 @@
+diff --git a/ai_race/sim_environment/scripts/course_out_surveillance.py b/ai_race/sim_environment/scripts/course_out_surveillance.py
+index 3c74297..3c9abad 100755
+--- a/ai_race/sim_environment/scripts/course_out_surveillance.py
++++ b/ai_race/sim_environment/scripts/course_out_surveillance.py
+@@ -4,6 +4,7 @@ import dynamic_reconfigure.client
+ import time
+ 
+ from gazebo_msgs.msg import ModelStates
++from nav_msgs.msg import Odometry
+ from std_msgs.msg import Bool
+ import requests
+ import json
+@@ -36,17 +37,23 @@ def dynamic_recon_callback(config):
+     global curr_max_speed_coeff
+     curr_max_speed_coeff = config.max_speed_coeff
+ 
+-def xy_update(data):
++#def xy_update(data):
++#    global x
++#    global y
++#
++#    try:
++#        pos = data.name.index('wheel_robot')
++#        x = data.pose[pos].position.x
++#        y = data.pose[pos].position.y
++#    except ValueError:
++#        #print ('can not get model.name.index, skip !!')
++#        pass
++
++def callback_odom(self, msg):
+     global x
+     global y
+-
+-    try:
+-        pos = data.name.index('wheel_robot')
+-        x = data.pose[pos].position.x
+-        y = data.pose[pos].position.y
+-    except ValueError:
+-        #print ('can not get model.name.index, skip !!')
+-        pass
++    x = msg.pose.pose.position.x
++    y = msg.pose.pose.position.y
+ 
+ def judge_course_l1():
+     global dynamic_client
+@@ -100,7 +107,8 @@ def course_out_surveillance():
+     global dynamic_client
+     rospy.init_node('course_out_surveillance', anonymous=True)
+     dynamic_client = dynamic_reconfigure.client.Client("dynamic_recon_server_node", timeout=30, config_callback=dynamic_recon_callback)
+-    rospy.Subscriber("/gazebo/model_states", ModelStates, xy_update, queue_size = 10)
++    #rospy.Subscriber("/gazebo/model_states", ModelStates, xy_update, queue_size = 10)
++    self.pose_sub = rospy.Subscriber('/wheel_robot_tracker', Odometry, self.callback_odom)
+ 
+     rate = rospy.Rate(10)
+     while not rospy.is_shutdown():
+diff --git a/ai_race/sim_environment/scripts/detect_stack.py b/ai_race/sim_environment/scripts/detect_stack.py
+index 50cf72c..62aef4a 100755
+--- a/ai_race/sim_environment/scripts/detect_stack.py
++++ b/ai_race/sim_environment/scripts/detect_stack.py
+@@ -9,6 +9,8 @@ import sys
+ from std_msgs.msg import Float64
+ from cob_srvs.srv import SetInt, SetIntRequest
+ from gazebo_msgs.msg import ModelStates
++from nav_msgs.msg import Odometry
++import tf
+ from geometry_msgs.msg import Twist, Pose
+ 
+ class StackDetector:
+@@ -18,7 +20,8 @@ class StackDetector:
+         # rospy.Subscriber("/rear_left_wheel_velocity_controller/command", Float64, self.get_left_command)
+         # rospy.Subscriber("/rear_right_wheel_velocity_controller/command", Float64, self.get_right_command)
+         rospy.Subscriber("/cmd_vel", Twist, self.get_target_command)
+-        rospy.Subscriber("/gazebo/model_states", ModelStates, self.get_speed)
++        #rospy.Subscriber("/gazebo/model_states", ModelStates, self.get_speed)
++        self.pose_sub = rospy.Subscriber('/wheel_robot_tracker', Odometry, self.callback_odom)
+         self.respown_srv = rospy.ServiceProxy("/jugemu_new/respown", SetInt)
+         self.right_command = 0.0
+         self.left_command = 0.0
+@@ -28,6 +31,7 @@ class StackDetector:
+         self.pre_t = 0.0
+         self.stack_counter = 0.0
+         self.pose = Pose()
++        self.odom_theta = 1.57
+         
+     def get_rosparam(self):
+         self.respown_point = rospy.get_param("/respown_point")
+@@ -41,14 +45,23 @@ class StackDetector:
+     # def get_right_command(self, msg):
+     #     self.right_command = msg.data
+ 
+-    def get_speed(self, models):
+-        try:
+-            index = models.name.index("wheel_robot")
+-            self.pose = models.pose[index]
+-        except ValueError:
+-            #print ('can not get model.name.index, skip !!')
+-            pass
+-        
++    #def get_speed(self, models):
++    #    try:
++    #        index = models.name.index("wheel_robot")
++    #        self.pose = models.pose[index]
++    #    except ValueError:
++    #        #print ('can not get model.name.index, skip !!')
++    #        pass
++
++    def callback_odom(self, msg):
++        self.pose = msg.pose.pose
++        qx = msg.pose.pose.orientation.x
++        qy = msg.pose.pose.orientation.y
++        qz = msg.pose.pose.orientation.z
++        qw = msg.pose.pose.orientation.w
++        q = (qx, qy, qz, qw)
++        e = tf.transformations.euler_from_quaternion(q)
++        self.odom_theta = e[2]
+ 
+     def search_nearest_respown(self):
+         min_distance = 100.0
+diff --git a/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro b/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
+index ac723fb..5cf87d9 100755
+--- a/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
++++ b/ai_race/sim_environment/urdf/wheel_robot.urdf.xacro
+@@ -99,6 +99,12 @@
+ 
+   <gazebo>
+     <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so" />
++    <plugin name="wheel_robot_ground_truth" filename="libgazebo_ros_p3d.so">
++        <frameName>world</frameName>
++        <bodyName>base_link</bodyName>
++        <topicName>/wheel_robot_tracker</topicName>
++        <updateRate>10.0</updateRate>
++    </plugin>
+   </gazebo>
+  
+ 
