@@ -1,0 +1,269 @@
+diff --git a/judge/judgeServer.py b/judge/judgeServer.py
+index 9199969..d7fbf49 100644
+--- a/judge/judgeServer.py
++++ b/judge/judgeServer.py
+@@ -42,6 +42,28 @@ class TimeManagementClass():
+         self.lap_start_time = 0.00
+         self.lap_time_list = list(range(0))
+ 
++class ObstacleClass():
++    def __init__(self, ObstacleKind, ObstacleName):
++        self.kind = ObstacleKind
++        self.name = ObstacleName
++        self.collision_counter = 0
++        print(self.name + " class, created")
++
++    def clear(self):
++        self.collision_counter = 0
++
++    def update_collision_counter(self, cnt):
++        self.collision_counter = self.collision_counter + cnt
++
++    def get_kind(self):
++        return self.kind
++
++    def get_name(self):
++        return self.name
++
++    def get_collision_counter(self):
++        return self.collision_counter
++
+ class GameManagerClass:
+ 
+     ####
+@@ -54,6 +76,16 @@ class GameManagerClass:
+         self.time_mode = args.timemode
+         self.system_time = TimeManagementClass() # system time
+         self.ros_time = TimeManagementClass()    # ros time
++        print("hoge")
++        self.ObstacleClasses = [
++            ObstacleClass("cone", "coneA"),
++            ObstacleClass("cone", "coneB"),
++            ObstacleClass("cone", "coneC"),
++            ObstacleClass("cone", "coneD"),
++            ObstacleClass("cone", "coneE"),
++            ObstacleClass("cone", "coneF"),
++            ObstacleClass("cone", "coneG")
++        ]
+         self.initGameData()
+ 
+     def setJudgeState(self, state):
+@@ -84,6 +116,8 @@ class GameManagerClass:
+         self.recovery_count = 0
+         self.courseout_count = 0
+         self.is_courseout = 0
++        for ObstacleClass in self.ObstacleClasses:
++            ObstacleClass.clear()
+ 
+     def startGame(self):
+         self.setJudgeState("start")
+@@ -175,6 +209,16 @@ class GameManagerClass:
+             self.courseout_count = self.courseout_count + int(body["courseout_count"])
+         if "recovery_count" in body:
+             self.recovery_count = self.recovery_count + int(body["recovery_count"])
++        if "cone" in body:
++            # update cone count
++            cone_count_body = body["cone"]
++            cone_name = cone_count_body["name"]
++            cone_count = cone_count_body["count"]
++            # search class
++            for ObstacleClass in self.ObstacleClasses:
++                if ObstacleClass.get_name() == cone_name:
++                    # update data
++                    ObstacleClass.update_collision_counter(cone_count)
+         if "is_courseout" in body:
+             self.is_courseout = int(body["is_courseout"])
+             print(self.is_courseout)
+@@ -185,6 +229,13 @@ class GameManagerClass:
+     def getGameStateJson(self):
+         self.updateTime()
+ 
++        # get obstacle "Cone" infomation
++        collision_counter_cone = list(range(0))
++        for ObstacleClass in self.ObstacleClasses:
++            if ObstacleClass.get_kind() == "cone":
++                counter = ObstacleClass.get_collision_counter()
++                collision_counter_cone.append(counter)
++
+         # state data to json
+         json = {
+             "field_info": {
+@@ -204,6 +255,9 @@ class GameManagerClass:
+                     "system_time": self.system_time.lap_time_list,
+                     "ros_time": self.ros_time.lap_time_list,
+                 },
++                "collision_count": {
++                    "cone": collision_counter_cone,
++                },
+                 "time_mode": self.time_mode,
+                 "time_max": self.time_max,
+                 "lap_count": self.lap_count,
+diff --git a/judge/timer.py b/judge/timer.py
+index 8be4778..57f44d2 100644
+--- a/judge/timer.py
++++ b/judge/timer.py
+@@ -28,7 +28,7 @@ class Window(QMainWindow):
+         
+         # setting geometry
+         upper_left = (100,100)
+-        width_height = (600, 280)
++        width_height = (600, 320)
+         self.setGeometry(upper_left[0], upper_left[1],
+                          width_height[0], width_height[1]) 
+ 
+@@ -44,7 +44,7 @@ class Window(QMainWindow):
+         # creating a label to show the time 
+         self.label = QLabel(self)
+         label_upper_left = (10, 10)
+-        label_width_height = (580, 170)
++        label_width_height = (580, 210)
+         self.label.setGeometry(label_upper_left[0], label_upper_left[1], 
+                                label_width_height[0], label_width_height[1]) 
+         self.label.setStyleSheet("border : 4px solid black;") 
+@@ -54,7 +54,7 @@ class Window(QMainWindow):
+   
+         # create init button 
+         init = QPushButton("Init", self) 
+-        init_upper_left = (15, 190)
++        init_upper_left = (15, 230)
+         init_width_height = (90, 40)
+         init.setGeometry(init_upper_left[0], init_upper_left[1], 
+                          init_width_height[0], init_width_height[1])
+@@ -62,7 +62,7 @@ class Window(QMainWindow):
+ 
+         # create start button
+         start = QPushButton("Start", self) 
+-        start_upper_left = (110, 190)
++        start_upper_left = (110, 230)
+         start_width_height = (90, 40)
+         start.setGeometry(start_upper_left[0], start_upper_left[1],
+                           start_width_height[0], start_width_height[1])
+@@ -70,7 +70,7 @@ class Window(QMainWindow):
+ 
+         # create stop button 
+         stop = QPushButton("Stop", self) 
+-        stop_upper_left = (205, 190)
++        stop_upper_left = (205, 230)
+         stop_width_height = (90, 40)
+         stop.setGeometry(stop_upper_left[0], stop_upper_left[1],
+                           stop_width_height[0], stop_width_height[1])
+@@ -78,23 +78,32 @@ class Window(QMainWindow):
+ 
+         # create Manual Recovery button
+         ManualRecovery = QPushButton("Manual\nRecovery", self) 
+-        ManualRecovery_upper_left = (300, 190)
++        ManualRecovery_upper_left = (300, 230)
+         ManualRecovery_width_height = (90, 40)
+         ManualRecovery.setGeometry(ManualRecovery_upper_left[0], ManualRecovery_upper_left[1],
+                           ManualRecovery_width_height[0], ManualRecovery_width_height[1])
+         ManualRecovery.pressed.connect(self.ManualRecovery)
+         ManualRecovery.setFont(QFont("Meiryo", 9))
+ 
++        # create Manual Recovery button
++        ConeA = QPushButton("ConeA", self) 
++        ConeA_upper_left = (395, 230)
++        ConeA_width_height = (50, 20)
++        ConeA.setGeometry(ConeA_upper_left[0], ConeA_upper_left[1],
++                          ConeA_width_height[0], ConeA_width_height[1])
++        ConeA.pressed.connect(self.ConeA)
++        ConeA.setFont(QFont("Meiryo", 6))
++
+         # create lap_count Plus/Minus button 
+         lapcountPlus = QPushButton("Lap++", self) 
+-        lapcountPlus_upper_left = (15, 235)
++        lapcountPlus_upper_left = (15, 275)
+         lapcountPlus_width_height = (90, 40)
+         lapcountPlus.setGeometry(lapcountPlus_upper_left[0], lapcountPlus_upper_left[1],
+                              lapcountPlus_width_height[0], lapcountPlus_width_height[1])
+         lapcountPlus.pressed.connect(self.LapCount_plus) 
+ 
+         lapcountMinus = QPushButton("Lap--", self) 
+-        lapcountMinus_upper_left = (110, 235)
++        lapcountMinus_upper_left = (110, 275)
+         lapcountMinus_width_height = (90, 40)
+         lapcountMinus.setGeometry(lapcountMinus_upper_left[0], lapcountMinus_upper_left[1],
+                              lapcountMinus_width_height[0], lapcountMinus_width_height[1])
+@@ -102,7 +111,7 @@ class Window(QMainWindow):
+ 
+         # create CourseOutCount Plus/Minus button 
+         CourseOutCountPlus = QPushButton("CourseOut++", self) 
+-        CourseOutCountPlus_upper_left = (205, 235)
++        CourseOutCountPlus_upper_left = (205, 275)
+         CourseOutCountPlus_width_height = (90, 40)
+         CourseOutCountPlus.setGeometry(CourseOutCountPlus_upper_left[0], CourseOutCountPlus_upper_left[1],
+                              CourseOutCountPlus_width_height[0], CourseOutCountPlus_width_height[1])
+@@ -110,7 +119,7 @@ class Window(QMainWindow):
+         CourseOutCountPlus.setFont(QFont("Meiryo", 9))
+ 
+         CourseOutCountMinus = QPushButton("CourseOut--", self) 
+-        CourseOutCountMinus_upper_left = (300, 235)
++        CourseOutCountMinus_upper_left = (300, 275)
+         CourseOutCountMinus_width_height = (90, 40)
+         CourseOutCountMinus.setGeometry(CourseOutCountMinus_upper_left[0], CourseOutCountMinus_upper_left[1],
+                              CourseOutCountMinus_width_height[0], CourseOutCountMinus_width_height[1])
+@@ -119,7 +128,7 @@ class Window(QMainWindow):
+ 
+         # create RecoveryCount Plus/Minus button 
+         RecoveryCountPlus = QPushButton("Recovery++", self) 
+-        RecoveryCountPlus_upper_left = (395, 235)
++        RecoveryCountPlus_upper_left = (395, 275)
+         RecoveryCountPlus_width_height = (90, 40)
+         RecoveryCountPlus.setGeometry(RecoveryCountPlus_upper_left[0], RecoveryCountPlus_upper_left[1],
+                              RecoveryCountPlus_width_height[0], RecoveryCountPlus_width_height[1])
+@@ -127,7 +136,7 @@ class Window(QMainWindow):
+         RecoveryCountPlus.setFont(QFont("Meiryo", 9))
+ 
+         RecoveryCountMinus = QPushButton("Recovery--", self) 
+-        RecoveryCountMinus_upper_left = (490, 235)
++        RecoveryCountMinus_upper_left = (490, 275)
+         RecoveryCountMinus_width_height = (90, 40)
+         RecoveryCountMinus.setGeometry(RecoveryCountMinus_upper_left[0], RecoveryCountMinus_upper_left[1],
+                              RecoveryCountMinus_width_height[0], RecoveryCountMinus_width_height[1])
+@@ -191,6 +200,19 @@ class Window(QMainWindow):
+         res = self.httpPostReqToURL(url, req_data)
+         return res
+ 
++    # ConeA button
++    def ConeA(self):
++        url = JUDGESERVER_UPDATEDATA_URL
++        req_data = {
++            # "courseout_count": 1,
++            "cone": {
++                "name" : "coneA",
++                "count" : 1
++                }
++        }
++        res = self.httpPostReqToURL(url, req_data)
++        return res
++
+     # lap count button
+     def LapCount_plus(self):
+         # request POST data to server
+@@ -255,6 +277,8 @@ class Window(QMainWindow):
+         lap_count = data["judge_info"]["lap_count"]
+         recovery_count = data["judge_info"]["recovery_count"]
+         courseout_count = data["judge_info"]["courseout_count"]
++        cone_collision_counts = data["judge_info"]["collision_count"]["cone"]
++        #print(cone_collision_counts)
+         #courseout_count = 0
+         judgestate = data["judge_info"]["judgestate"]
+ 
+@@ -273,7 +297,7 @@ class Window(QMainWindow):
+         courseout_count_str = str(courseout_count)
+         judgestate_str = str(judgestate)
+         lap_time_str = str('{:.2f}'.format(lap_time))
+-
++        cone_collision_counts_str = str(cone_collision_counts)
+         # update check
+         if elapsed_time > (time_max + self.TimerUpdate_mSec/1000):
+             return None
+@@ -284,7 +308,8 @@ class Window(QMainWindow):
+                + "LAP Time: " + lap_time_str + " (s)" + "\n" \
+                + "LAP: " + lap_count_str + "  " \
+                + "CourseOut: " + courseout_count_str + "  " \
+-               + "Recovery: " + recovery_count_str
++               + "Recovery: " + recovery_count_str + "\n" \
++               + "Cone Collision: " + cone_collision_counts_str 
+ 
+         return text
+ 
