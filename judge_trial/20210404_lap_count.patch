@@ -1,0 +1,72 @@
+diff --git a/judge/judgeServer.py b/judge/judgeServer.py
+index 2143618..9199969 100644
+--- a/judge/judgeServer.py
++++ b/judge/judgeServer.py
+@@ -7,6 +7,7 @@ import argparse
+ import json
+ import threading
+ import pprint
++from decimal import Decimal, Context
+ ## flask
+ from flask import Flask, request, jsonify, render_template
+ from flask import send_from_directory
+@@ -165,9 +166,11 @@ class GameManagerClass:
+         app.logger.info("updateData")
+ 
+         # check which data is requested to update
+-        ## lap count
+         if "lap_count" in body:
+-            self.lap_count = self.lap_count + int(body["lap_count"])
++            ## lap count
++            ## delete unnecessary 0, from lap_count value
++            current_lap = float(self.lap_count) + float(body["lap_count"])
++            self.lap_count = self.decimal_normalize( float(current_lap) )
+         if "courseout_count" in body:
+             self.courseout_count = self.courseout_count + int(body["courseout_count"])
+         if "recovery_count" in body:
+@@ -218,6 +221,8 @@ class GameManagerClass:
+     def writeResult(self):
+         ## For Debug, output Result file.
+         script_dir = os.path.dirname(os.path.abspath(__file__))
++        #current_time_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
++        #log_file_path = script_dir + "/log/" + "game_result_" + current_time_str + ".log"
+         log_file_path = script_dir + "/log/" + "game_result.log"
+         with open(log_file_path, "w") as f:
+             jsondata = self.getGameStateJson()
+@@ -226,6 +231,14 @@ class GameManagerClass:
+             print("result log: " + log_file_path)
+             pprint.pprint(jsondata, compact = True)
+ 
++    def decimal_normalize(self, f):
++        """数値fの小数点以下を正規化する。文字列を返す"""
++        def _remove_exponent(d):
++            return d.quantize(Decimal(1)) if d == d.to_integral() else d.normalize()
++        a = Decimal.normalize(Decimal(str(f)))
++        b = _remove_exponent(a)
++        return str(b)
++
+ ### API definition
+ @app.route('/')
+ def index():
+diff --git a/judge/request_to_judge.sh b/judge/request_to_judge.sh
+index 21c7c8b..8a786cc 100755
+--- a/judge/request_to_judge.sh
++++ b/judge/request_to_judge.sh
+@@ -28,6 +28,8 @@ do
+ done
+ 
+ JUDGESERVER_REQUEST_URL="http://${HOSTADDR}/judgeserver/request"
++JUDGESERVER_UPDATEDATA_URL="http://${HOSTADDR}/judgeserver/updateData"
++JUDGESERVER_GETSTATE_URL="http://${HOSTADDR}/judgeserver/getState"
+ 
+ ########### script ########################
+ # set state to "running"
+@@ -39,6 +41,8 @@ elif [ "$REQ_STATE" == "stop" ]; then
+     curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"change_state":"stop"}' ${JUDGESERVER_REQUEST_URL}
+ elif [ "$REQ_STATE" == "init" ]; then
+     curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"change_state":"init"}' ${JUDGESERVER_REQUEST_URL}
++elif [ "$REQ_STATE" == "lap_count" ]; then
++    curl -H "Accept: application/json" -H "Content-type: application/json" -X POST -d '{"lap_count":0.25}' ${JUDGESERVER_UPDATEDATA_URL}
+ else
+     echo "invalid parameter... ${HOSTADDR}, ${REQ_STATE}"
+ fi
