@@ -1,0 +1,147 @@
+diff --git a/ai_race/sim_environment/launch/sim_environment.launch b/ai_race/sim_environment/launch/sim_environment.launch
+index 4d64e4a..c700e1f 100755
+--- a/ai_race/sim_environment/launch/sim_environment.launch
++++ b/ai_race/sim_environment/launch/sim_environment.launch
+@@ -6,6 +6,7 @@
+   <arg name="controller" default="false" />
+   <arg name="record" default="false" />
+   <arg name="play" default="false" />
++  <arg name="collision_detection_cone_width" default="0.2" />
+ 
+   <!-- level 1 (default) -->
+   <group if="$(eval level==1)"> 
+@@ -94,6 +95,7 @@
+       <arg name="dynamic_recon" value="True" />
+       <arg name="with_auto_recovery" value="true" />    <!--  for large field debug -->
+       <arg name="collision_detection" value="true" />
++      <arg name="collision_detection_cone_width" value="$(arg collision_detection_cone_width)" />
+       <arg name="arrow" value="$(arg arrow)" />
+       <arg name="record" value="$(arg record)" />
+       <arg name="play" value="$(arg play)" />
+diff --git a/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch b/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
+index 9693e3b..0fcb54f 100755
+--- a/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
++++ b/ai_race/sim_environment/launch/wheel_robot_with_surveillance.launch
+@@ -10,6 +10,7 @@
+   <arg name="dynamic_recon" default="false" />
+   <arg name="with_auto_recovery" default="false" />
+   <arg name="collision_detection" default="false" />
++  <arg name="collision_detection_cone_width" default="0.2" />
+   <arg name="arrow" default="true" />
+   <arg name="record" default="false" />
+   <arg name="play" default="false" />
+@@ -113,7 +114,9 @@
+ 
+   <!-- use collision_detection-->
+   <group if="$(eval collision_detection==true)">
+-      <node pkg="sim_environment" type="collision_surveillance.py" name="collision_surveillance" output="screen" />
++      <node pkg="sim_environment" type="collision_surveillance.py" name="collision_surveillance" output="screen" >
++	<param name="cone_width" value="$(arg collision_detection_cone_width)" />
++      </node>
+   </group>
+ 
+ 
+diff --git a/ai_race/sim_environment/scripts/collision_surveillance.py b/ai_race/sim_environment/scripts/collision_surveillance.py
+index 54092af..fdcf4e5 100755
+--- a/ai_race/sim_environment/scripts/collision_surveillance.py
++++ b/ai_race/sim_environment/scripts/collision_surveillance.py
+@@ -21,7 +21,6 @@ CONES = [
+ ]
+ CAR_LENGTH = 0.4
+ CAR_WIDTH = 0.2
+-CONE_WIDTH = 0.2
+ 
+ # 一度検出した後に次に検出可能になるまでの時間
+ # mainに書いているけどクラスに書いた方が自然な気がする
+@@ -48,6 +47,7 @@ class CollisionDetector(object):
+         self.cool_time_sec = cool_time_sec
+         self.current_time = rospy.Time.now().to_sec()
+         self.prev_time_when_collision = self.current_time
++        self.get_rosparam()
+         self.model_states_subscriber = rospy.Subscriber("/gazebo/model_states", ModelStates, self.callback, queue_size=1)
+         self.wheel_robot_tracker_x = 0
+         self.wheel_robot_tracker_y = 0
+@@ -57,6 +57,10 @@ class CollisionDetector(object):
+         self.data = None
+         self.obeject_positions = {}
+ 
++    def get_rosparam(self):
++        self.cone_width = rospy.get_param('~cone_width', default=0.2)
++        print("cone_width ")
++        print(self.cone_width)
+     def callback(self, data):
+         # check if all CONE objects are spawn in the world.
+         # sometimes CONEs are allocated randomly..
+@@ -162,8 +166,8 @@ class CollisionDetector(object):
+             if self.is_collided_rect_and_rect(
+                     car_x + CAR_WIDTH / 2, car_x - CAR_WIDTH / 2,
+                     car_y + CAR_LENGTH / 2, car_y - CAR_LENGTH / 2,
+-                    object_x + CONE_WIDTH / 2, object_x - CONE_WIDTH / 2,
+-                    object_y + CONE_WIDTH / 2, object_y - CONE_WIDTH / 2
++                    object_x + self.cone_width / 2, object_x - self.cone_width / 2,
++                    object_y + self.cone_width / 2, object_y - self.cone_width / 2
+                     ):
+                 self.prev_time_when_collision = self.current_time
+                 # update Count request
+diff --git a/ai_race/your_environment/launch/sim_environment.launch b/ai_race/your_environment/launch/sim_environment.launch
+index 191a0f1..b964a9e 100755
+--- a/ai_race/your_environment/launch/sim_environment.launch
++++ b/ai_race/your_environment/launch/sim_environment.launch
+@@ -6,7 +6,7 @@
+   <arg name="controller" default="false" />
+   <arg name="record" default="false" />
+   <arg name="play" default="false" />
+-  
++  <arg name="collision_detection_cone_width" default="0.2" />
+ 
+   <!-- This is your sim_environment setup launch file. -->
+   <!-- If you want to get dataset from your original world, use this file. -->
+@@ -19,6 +19,7 @@
+     <arg name="controller" value="$(arg controller)" />
+     <arg name="record" value="$(arg record)" />
+     <arg name="play" value="$(arg play)" />
++    <arg name="collision_detection_cone_width" value="$(arg collision_detection_cone_width)" />
+   </include>  
+ 
+ </launch>
+diff --git a/scripts/prepare.sh b/scripts/prepare.sh
+index d159578..bba4439 100755
+--- a/scripts/prepare.sh
++++ b/scripts/prepare.sh
+@@ -12,9 +12,10 @@ TIME_MODE=2
+ PACKAGE_NAME="your_environment"
+ WITH_GUI="true"
+ WITH_CONTROLLER="false"
++COLLISION_DETECTION_CONE_WIDTH=0.2
+ 
+ # option
+-while getopts l:p:t:g:c: OPT
++while getopts l:p:t:g:c:w: OPT
+ do
+     case $OPT in
+         "l" ) LEVEL=$OPTARG ;;
+@@ -22,6 +23,7 @@ do
+         "t" ) GAME_TIME=$OPTARG ;;
+         "g" ) WITH_GUI="$OPTARG" ;;
+         "c" ) WITH_CONTROLLER="$OPTARG" ;;
++	"w" ) COLLISION_DETECTION_CONE_WIDTH="$OPTARG" ;;
+     esac
+ done
+ 
+@@ -32,6 +34,7 @@ echo "GAME_TIME: ${GAME_TIME}"
+ echo "TIME_MODE: ${TIME_MODE} (1:SYSTEM TIME/2:ROS Time)"
+ echo "WITH_GUI: ${WITH_GUI}"
+ echo "WITH_CONTROLLER: ${WITH_CONTROLLER}"
++echo "COLLISION_DETECTION_CONE_WIDTH: ${COLLISION_DETECTION_CONE_WIDTH}"
+ 
+ # warning
+ function output_warning(){
+@@ -65,7 +68,7 @@ gnome-terminal -- python3 ../judge/timer.py
+ # [future work] if necessary, register some data to server here.
+ 
+ # init simulator, course and vehicle
+-roslaunch ${PACKAGE_NAME} sim_environment.launch level:=${LEVEL} gui:=${WITH_GUI} controller:=${WITH_CONTROLLER}
++roslaunch ${PACKAGE_NAME} sim_environment.launch level:=${LEVEL} gui:=${WITH_GUI} controller:=${WITH_CONTROLLER} collision_detection_cone_width:=${COLLISION_DETECTION_CONE_WIDTH} 
+ 
+ #roslaunch your_environment your_environment.launch level:=${LEVEL}
+ #roslaunch sim_environment sim_environment.launch level:=${LEVEL}
